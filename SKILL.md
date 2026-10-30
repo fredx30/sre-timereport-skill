@@ -16,26 +16,28 @@ density.
 
 ## Configuration
 
-`scripts/gather.sh` reads its specifics from environment variables so nothing
-organisation-specific lives in the skill:
+Nothing organisation-specific lives in the scripts. Values come from the environment
+first, then from `scripts/config.local.sh` (gitignored; copy `scripts/config.example.sh`
+and edit) or the file named by `TIME_REPORT_CONFIG`:
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `ORG` | yes | GitHub organisation (or user) whose repos are searched |
+| `ORG` | for GitHub | GitHub organisation (or user) whose repos are searched; the `github-*` collectors skip without it |
 | `LOGIN` | no | GitHub login to report on; defaults to the authenticated `gh` user |
-| `JIRA_SEARCH` | no | Command that takes a JQL string as its last argument and prints a JSON array of issues with `key`, `fields.status.name`, `fields.summary`. Jira is skipped with a note when unset |
-| `TICKET_RE` | no | Regex for ticket keys in PR bodies; defaults to the generic `\b[A-Z]{2,10}-[0-9]+\b` (set it if your project keys contain digits) |
+| `JIRA_SEARCH` | no | Command that takes a JQL string as its last argument and prints a JSON array of issues with `key`, `fields.status.name`, `fields.summary`. The `jira` collector skips with a note when unset |
+| `TICKET_RE` | no | Regex for ticket keys in PR bodies; defaults to the generic `\b[A-Z]{2,10}-[0-9]+\b`. Set an explicit list such as `\b(PROJ\|OPS)-[0-9]+\b` when you know the projects |
 | `TICKET_EXCLUDE` | no | Regex for matches to drop; defaults to `^(CVE\|UTF\|SHA\|RFC\|ISO\|MD\|TLS\|SSL\|AES\|RSA\|HTTP\|GHSA\|X\|ID)-` so `CVE-2026-1234`, `RFC-001`, `SHA-256` and the like are not reported as tickets |
-| `PROJECT_PREFIX` | no | Prefix stripped from `~/.claude/projects/` directory names in `sessions.tsv`, e.g. `C--Users-me-work-` |
+| `PROJECT_PREFIX` | no | Colon-separated prefixes stripped from `~/.claude/projects/` directory names in `sessions.tsv`, first match wins, e.g. `C--Users-me-work-:C--Users-me-` |
+| `PROJECT_HOME` | no | Project directory name shown as `home`, e.g. `C--Users-me` |
+| `HOLIDAY_NOTE` | no | Note line in `workdays.txt`; defaults to a generic public-holiday reminder |
 | `HOME_DIR` | no | Defaults to `$HOME` |
 
-Put the values in the user's shell profile or pass them inline. The repo short-name
-table and ticket link convention in `references/format.md` are also per-user: fill them
-in the first time the skill is used and keep them current.
+The repo short-name table and ticket link convention in `references/format.md` are also
+per-user: fill them in the first time the skill is used and keep them current.
 
 ## Workflow
 
-### 1. Gather evidence (one script)
+### 1. Gather evidence (one script, one collector per source)
 
 ```
 bash ~/.claude/skills/monthly-time-report/scripts/gather.sh YYYY-MM <scratchpad>/time-report-YYYY-MM
@@ -43,27 +45,28 @@ bash ~/.claude/skills/monthly-time-report/scripts/gather.sh YYYY-MM <scratchpad>
 
 Pass the session scratchpad directory (listed in the environment section of the system
 prompt) as `outdir`. Without it the script falls back to `/tmp/time-report-YYYY-MM`,
-which is shared across sessions. It writes TSV/TXT files and a `summary.txt` with the
-headline counts. Read `summary.txt` first, then the individual files as you write. A
-`limit_hit=` line other than `none` means a search was truncated at the API cap of 1000
-results; say so in the Sources line.
-
-What it pulls and why:
-
-| File | Source | Used for |
+which is shared across sessions. `gather.sh` runs every `scripts/collectors/NN-name.sh`
+in order; each collector checks its own tools, writes its own files and its own lines in
+`summary.txt`. A collector whose tool is missing or unconfigured records
+`name=skipped (reason)` and the rest still run, so read `summary.txt` first: every
+`skipped` line is a gap to state in the report's Sources line, and a `limit_hit=` line
+means a search was truncated at the API cap of 1000 results. `--only a,b` and `--skip c`
+select collectors by name or group prefix (`github`), `--list` prints the names, and each
+collector also runs on its own with the same two arguments.
+| Collector | Files | Used for |
 |---|---|---|
-| `prs-opened.tsv` | `gh search prs --author --created` | the day-by-day body, "PRs opened" count |
-| `prs-merged.tsv` | `--merged-at` in month (any open date) | "merged" count, carry-overs ("opened D" when earlier) |
-| `prs-closed-unmerged.tsv` | closed in month minus merged | note who closed what; often the team closing stale PRs |
-| `prs-open-all.tsv` | all currently open by author | carry-over section, stacked-PR context |
-| `reviews.tsv` | reviews API filtered to `submitted_at` in month | "reviewed" count. `--reviewed-by` search alone over-counts (it matches reviews from earlier months on PRs updated this month), so candidates are every reviewed PR updated since the month start and each review is dated by `submitted_at` |
-| `commits.tsv` | `gh search commits` | days where work happened without a PR event |
-| `events.tsv` | `users/<login>/events` | review comments, pushes, branch churn. Columns: count, date, type, repo, action, ref/number. Only ~300 events deep, so state the cutoff date in the report |
-| `sessions.tsv` | `~/.claude/projects/**/*.jsonl` mtimes + opening prompt | what was worked on per day outside GitHub; the opening prompt gives the topic |
-| `home-docs.tsv` | `~/*.md` modified in month | the Docs table |
-| `jira-weekly.txt` | `$JIRA_SEARCH`, per ISO-week buckets | which tickets were updated / transitioned by the user per week |
-| `pr-jira-keys.tsv` | ticket keys in PR bodies (`TICKET_RE` minus `TICKET_EXCLUDE`) | ties PRs to tickets for the Jira table |
-| `workdays.txt` | weekday count for the month | the time estimate |
+| `github-prs` | `prs-opened.tsv`, `prs-merged.tsv` (merged in month, any open date), `prs-closed-unmerged.tsv`, `prs-open-all.tsv`, `pr-jira-keys.tsv` | the day-by-day body and the header counts; carry-overs ("opened D" when earlier); who closed what; stacked-PR context; ticket keys cited in PR bodies (`TICKET_RE` minus `TICKET_EXCLUDE`) for the Jira table |
+| `github-reviews` | `reviews.tsv` | "reviewed" count. A plain `--reviewed-by` search over-counts, so candidates are every reviewed PR updated since the month start and each review is dated by its own `submitted_at` |
+| `github-commits` | `commits.tsv` | days where work happened without a PR event |
+| `github-events` | `events.tsv` (count, date, type, repo, action, ref/number) | review comments, pushes, branch churn. Only ~300 events deep: `event_stream_dense_from` in the summary is the cutoff to state in the report |
+| `claude-sessions` | `sessions.tsv` | what was worked on per day outside GitHub; the opening prompt gives the topic |
+| `home-docs` | `home-docs.tsv` | the Docs table |
+| `jira` | `jira-weekly.txt` | which tickets were updated / transitioned by the user per week, via `$JIRA_SEARCH` |
+| `workdays` | `workdays.txt` | the time estimate |
+
+To add a source, drop a new `NN-name.sh` into `scripts/collectors/` modelled on an
+existing one: source `../lib.sh`, call `tr_init "$@"`, declare tools with
+`require_tools`, write files into the current directory and summary lines with `note`.
 
 Two things the script cannot reach, do them yourself in the same turn:
 
