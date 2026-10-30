@@ -192,7 +192,8 @@ if [ -n "$JIRA_SEARCH" ]; then
       echo "-- assigned to me, updated:"
       jira "assignee = currentUser() AND updated >= '$d' AND updated < '$e'"
       echo "-- status changed by me:"
-      jira "status CHANGED BY currentUser() DURING ('$d', '$e')"
+      # JQL DURING is inclusive at both ends, so stop one day short of the next bucket start.
+      jira "status CHANGED BY currentUser() DURING ('$d', '$(date -d "$e -1 day" +%F)')"
       echo
       d="$e"
     done
