@@ -24,7 +24,8 @@ organisation-specific lives in the skill:
 | `ORG` | yes | GitHub organisation (or user) whose repos are searched |
 | `LOGIN` | no | GitHub login to report on; defaults to the authenticated `gh` user |
 | `JIRA_SEARCH` | no | Command that takes a JQL string as its last argument and prints a JSON array of issues with `key`, `fields.status.name`, `fields.summary`. Jira is skipped with a note when unset |
-| `TICKET_RE` | no | Regex for ticket keys in PR bodies; defaults to the generic `[A-Z][A-Z0-9]+-[0-9]+` |
+| `TICKET_RE` | no | Regex for ticket keys in PR bodies; defaults to the generic `\b[A-Z]{2,10}-[0-9]+\b` (set it if your project keys contain digits) |
+| `TICKET_EXCLUDE` | no | Regex for matches to drop; defaults to `^(CVE\|UTF\|SHA\|RFC\|ISO\|MD\|TLS\|SSL\|AES\|RSA\|HTTP\|GHSA\|X\|ID)-` so `CVE-2026-1234`, `RFC-001`, `SHA-256` and the like are not reported as tickets |
 | `PROJECT_PREFIX` | no | Prefix stripped from `~/.claude/projects/` directory names in `sessions.tsv`, e.g. `C--Users-me-work-` |
 | `HOME_DIR` | no | Defaults to `$HOME` |
 
@@ -37,12 +38,15 @@ in the first time the skill is used and keep them current.
 ### 1. Gather evidence (one script)
 
 ```
-bash ~/.claude/skills/monthly-time-report/scripts/gather.sh YYYY-MM [outdir]
+bash ~/.claude/skills/monthly-time-report/scripts/gather.sh YYYY-MM <scratchpad>/time-report-YYYY-MM
 ```
 
-Default outdir is the session scratchpad if `$CLAUDE_SCRATCHPAD` is set, else
-`/tmp/time-report-YYYY-MM`. It writes TSV/TXT files and a `summary.txt` with the
-headline counts. Read `summary.txt` first, then the individual files as you write.
+Pass the session scratchpad directory (listed in the environment section of the system
+prompt) as `outdir`. Without it the script falls back to `/tmp/time-report-YYYY-MM`,
+which is shared across sessions. It writes TSV/TXT files and a `summary.txt` with the
+headline counts. Read `summary.txt` first, then the individual files as you write. A
+`limit_hit=` line other than `none` means a search was truncated at the API cap of 1000
+results; say so in the Sources line.
 
 What it pulls and why:
 
@@ -52,13 +56,13 @@ What it pulls and why:
 | `prs-merged.tsv` | `--merged-at` in month (any open date) | "merged" count, carry-overs ("opened D" when earlier) |
 | `prs-closed-unmerged.tsv` | closed in month minus merged | note who closed what; often the team closing stale PRs |
 | `prs-open-all.tsv` | all currently open by author | carry-over section, stacked-PR context |
-| `reviews.tsv` | reviews API filtered to `submitted_at` in month | "reviewed" count. `--reviewed-by` search alone over-counts (it matches reviews from earlier months on PRs updated this month) |
+| `reviews.tsv` | reviews API filtered to `submitted_at` in month | "reviewed" count. `--reviewed-by` search alone over-counts (it matches reviews from earlier months on PRs updated this month), so candidates are every reviewed PR updated since the month start and each review is dated by `submitted_at` |
 | `commits.tsv` | `gh search commits` | days where work happened without a PR event |
-| `events.tsv` | `users/<login>/events` | review comments, pushes, branch churn. Only ~300 events deep, so state the cutoff date in the report |
+| `events.tsv` | `users/<login>/events` | review comments, pushes, branch churn. Columns: count, date, type, repo, action, ref/number. Only ~300 events deep, so state the cutoff date in the report |
 | `sessions.tsv` | `~/.claude/projects/**/*.jsonl` mtimes + opening prompt | what was worked on per day outside GitHub; the opening prompt gives the topic |
 | `home-docs.tsv` | `~/*.md` modified in month | the Docs table |
 | `jira-weekly.txt` | `$JIRA_SEARCH`, per ISO-week buckets | which tickets were updated / transitioned by the user per week |
-| `pr-jira-keys.tsv` | ticket keys in PR bodies | ties PRs to tickets for the Jira table |
+| `pr-jira-keys.tsv` | ticket keys in PR bodies (`TICKET_RE` minus `TICKET_EXCLUDE`) | ties PRs to tickets for the Jira table |
 | `workdays.txt` | weekday count for the month | the time estimate |
 
 Two things the script cannot reach, do them yourself in the same turn:
