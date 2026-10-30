@@ -59,7 +59,7 @@ collector also runs on its own with the same two arguments.
 | `github-reviews` | `reviews.tsv` | "reviewed" count. A plain `--reviewed-by` search over-counts, so candidates are every reviewed PR updated since the month start and each review is dated by its own `submitted_at` |
 | `github-commits` | `commits.tsv` | days where work happened without a PR event |
 | `github-events` | `events.tsv` (count, date, type, repo, action, ref/number) | review comments, pushes, branch churn. Only ~300 events deep: `event_stream_dense_from` in the summary is the cutoff to state in the report |
-| `claude-sessions` | `sessions.tsv` | what was worked on per day outside GitHub; the opening prompt gives the topic |
+| `claude-sessions` | `sessions.tsv` | what was worked on per day outside GitHub; the opening prompt gives the topic. Covers only what this user's local Claude Code install recorded under `~/.claude/projects`: sessions run in Docker sandboxes, dev containers, other machines or the web app leave nothing here. Say so in the Sources line, together with any usage figures (ccusage and the like) that read the same local logs |
 | `home-docs` | `home-docs.tsv` | the Docs table |
 | `jira` | `jira-weekly.txt` | which tickets were updated / transitioned by the user per week, via `$JIRA_SEARCH` |
 | `workdays` | `workdays.txt` | the time estimate |

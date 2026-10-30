@@ -2,6 +2,9 @@
 # Collector: local Claude Code sessions active in the month, with the opening prompt as topic.
 # Needs: jq, GNU find/stat.  Config: HOME_DIR, PROJECT_PREFIX, PROJECT_HOME.
 # Writes: sessions.tsv   date (file mtime), project, first 160 chars of the first real prompt
+# Scope: only what this user's local install recorded under $HOME_DIR/.claude/projects.
+# Sessions run in Docker sandboxes, dev containers, on other machines or in the web app
+# are not seen; the report's Sources line should say so.
 . "$(dirname "$0")/../lib.sh"; tr_init "$@"
 require_tools jq stat
 [ -d "$HOME_DIR/.claude/projects" ] || skip "no $HOME_DIR/.claude/projects directory"

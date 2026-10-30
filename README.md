@@ -1,8 +1,8 @@
 # sre-timereport-skill
 
 A Claude Code skill that reconstructs a calendar month of work from auditable sources
-(GitHub PRs, reviews, commits and events, Jira via a configurable CLI, local Claude
-session activity, `~/*.md` drafts, published artifacts) and writes two flat markdown
+(GitHub PRs, reviews, commits and events, Jira via a configurable CLI, Claude Code
+sessions recorded by the local install, `~/*.md` drafts, published artifacts) and writes two flat markdown
 files in `~`:
 
 - `monthly-report-YYYY-MM.md`: ISO-week-by-week report with linked PRs, a Jira table,
@@ -26,6 +26,8 @@ explicit "not recoverable" caveat.
 Collectors: `github-prs`, `github-reviews`, `github-commits`, `github-events`,
 `claude-sessions`, `home-docs`, `jira`, `workdays`. A collector whose tool is missing or
 unconfigured records `name=skipped (reason)` in `summary.txt` and the others still run.
+`claude-sessions` sees only this user's local `~/.claude/projects`; sessions in Docker
+sandboxes, dev containers, other machines or the web app are not tracked.
 To add a source, copy an existing collector: source `../lib.sh`, call `tr_init "$@"`,
 declare tools with `require_tools`, write files into the current directory and summary
 lines with `note`.
