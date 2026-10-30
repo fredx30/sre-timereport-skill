@@ -56,6 +56,20 @@ No activity recorded. <Anything the team did to the user's PRs that week.>
 
 ---
 
+## AI agent usage
+
+<One sentence: source (ccusage over the agent logs of this user's local install; Docker
+sandboxes, dev containers and other machines are not included, so the figures are a floor),
+snapshot time, which agents have logs on this machine, cost = list-price estimate; previous
+month's total for scale.>
+
+| Agent | Model | Input | Output | Cache write | Cache read | Total tokens | Est. cost (USD) |
+|---|---|---|---|---|---|---|---|
+| <Claude Code / Codex / ...> | <model> | n | n | n | n | n | n.nn |
+| **All** | | n | n | n | n | **n** | **n.nn** |
+
+---
+
 ## Carry-over into <next month>
 
 - <open PRs grouped by theme, with numbers>

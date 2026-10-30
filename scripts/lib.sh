@@ -44,12 +44,25 @@ note() { printf '%s\n' "$*" >> "$OUT/.summary/$COLLECTOR.txt"; }
 # Leave this collector out, record why, and let the rest of the run continue.
 skip() { note "${COLLECTOR#[0-9][0-9]-}=skipped ($1)"; say "skipped: $1"; exit 0; }
 
-require_tools() { local t; for t in "$@"; do command -v "$t" >/dev/null 2>&1 || skip "missing tool: $t"; done; }
+# Install hint per tool, shown in every "missing tool" skip so the user can fix the gap
+# without opening the docs. Windows package managers first, then macOS/Linux. Keep in sync with the Prerequisites section of SKILL.md.
+tool_hint() {
+  case "$1" in
+    gh)   echo "GitHub CLI — scoop install gh | winget install GitHub.cli | brew install gh | apt install gh; then: gh auth login" ;;
+    jq)   echo "jq — scoop install jq | winget install jqlang.jq | brew install jq | apt install jq" ;;
+    npx|node|npm) echo "Node.js (ships npx) — choco install nodejs-lts | winget install OpenJS.NodeJS.LTS | brew install node | apt install nodejs npm" ;;
+    stat|find|date|sort|awk|sed|grep|cut|tr) echo "GNU coreutils/findutils — on Windows run from Git Bash (Git for Windows) | brew install coreutils findutils (then use g-prefixed names or gnubin) | preinstalled on Linux" ;;
+    python|python3) echo "Python 3 — scoop install python | winget install Python.Python.3 | brew install python | apt install python3" ;;
+    *)    echo "see Prerequisites in SKILL.md" ;;
+  esac
+}
+missing() { skip "missing tool: $1 — install: $(tool_hint "$1")"; }   # skip with the install hint
+require_tools() { local t; for t in "$@"; do command -v "$t" >/dev/null 2>&1 || missing "$t"; done; }
 
 # gh present and authenticated, ORG set, LOGIN resolvable; otherwise skip.
 require_github() {
   require_tools gh jq
-  gh auth status >/dev/null 2>&1 || skip "gh is not authenticated (run gh auth login)"
+  gh auth status >/dev/null 2>&1 || skip "gh is not authenticated — run: gh auth login (then re-run)"
   [ -n "${ORG:-}" ] || skip "ORG is not set"
   LOGIN="${LOGIN:-$(gh api user --jq .login 2>/dev/null | tr -d '\r')}"
   [ -n "$LOGIN" ] || skip "could not resolve the GitHub login; set LOGIN"
@@ -61,9 +74,9 @@ tr_init() { # MONTH [outdir]
   [[ $MONTH =~ ^[0-9]{4}-(0[1-9]|1[0-2])$ ]] || die "MONTH must be YYYY-MM, got '$MONTH'" 2
   local t
   for t in date find sort awk sed grep cut tr; do
-    command -v "$t" >/dev/null 2>&1 || die "required tool '$t' not found in PATH" 127
+    command -v "$t" >/dev/null 2>&1 || die "required tool '$t' not found in PATH — install: $(tool_hint "$t")" 127
   done
-  date -d 2000-01-01 +%F >/dev/null 2>&1 || die "GNU date is required (date -d)" 127
+  date -d 2000-01-01 +%F >/dev/null 2>&1 || die "GNU date is required (date -d) — install: $(tool_hint date)" 127
 
   local cfg="${TIME_REPORT_CONFIG:-$TR_LIB_DIR/config.local.sh}"
   [ -f "$cfg" ] && . "$cfg"

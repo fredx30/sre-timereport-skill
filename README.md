@@ -24,7 +24,7 @@ explicit "not recoverable" caveat.
 | `references/format.md` | Structure of both output files, repo short-name table, link conventions, public holidays |
 
 Collectors: `github-prs`, `github-reviews`, `github-commits`, `github-events`,
-`claude-sessions`, `home-docs`, `jira`, `workdays`. A collector whose tool is missing or
+`claude-sessions`, `home-docs`, `agent-usage`, `jira`, `workdays`. A collector whose tool is missing or
 unconfigured records `name=skipped (reason)` in `summary.txt` and the others still run.
 `claude-sessions` sees only this user's local `~/.claude/projects`; sessions in Docker
 sandboxes, dev containers, other machines or the web app are not tracked.
@@ -77,6 +77,8 @@ After the first run, fill in the repo short-name table and the Jira link convent
 
 - `jq`, GNU `date`, `find` and `stat` (Git Bash on Windows has them)
 - `gh` (authenticated) for the four `github-*` collectors
+- `npx` (Node.js) for the `agent-usage` collector, which fetches ccusage itself; it only
+  sees agent logs written by the local install, not Docker sandboxes or other machines
 - A Jira CLI of your choice behind `JIRA_SEARCH` for the `jira` collector, optional
 
 ## License

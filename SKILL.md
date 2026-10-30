@@ -14,6 +14,21 @@ Read `references/format.md` for the exact structure of both files before writing
 previous month's pair exists in `~`, open it as the live exemplar: match its voice and
 density.
 
+## Prerequisites
+
+Every collector checks its own tools and, when one is missing, writes
+`name=skipped (missing tool: X — install: …)` to `summary.txt` with an install command,
+then the other collectors still run. Hand that line to the user as is; do not install
+anything on their behalf. The hints come from `tool_hint` in `scripts/lib.sh`:
+
+| Tool | Needed by | Install (Windows / macOS / Linux) |
+|---|---|---|
+| GNU `date -d`, `find`, `stat`, `sort`, `awk`, `sed` | every collector | Git for Windows (Git Bash); macOS `brew install coreutils findutils`; Linux preinstalled |
+| `jq` | all collectors | `scoop install jq` / `winget install jqlang.jq` / `brew install jq` / `apt install jq` |
+| `gh` (authenticated) | `github-*` | `scoop install gh` / `winget install GitHub.cli` / `brew install gh` / `apt install gh`, then `gh auth login` |
+| `npx` (Node.js) | `agent-usage` (fetches `ccusage` itself, no separate install) | `choco install nodejs-lts` / `winget install OpenJS.NodeJS.LTS` / `brew install node` / `apt install nodejs npm` |
+| `JIRA_SEARCH` command | `jira` | set it in `scripts/config.local.sh`; the collector is skipped with a note when unset |
+
 ## Configuration
 
 Nothing organisation-specific lives in the scripts. Values come from the environment
@@ -61,6 +76,7 @@ collector also runs on its own with the same two arguments.
 | `github-events` | `events.tsv` (count, date, type, repo, action, ref/number) | review comments, pushes, branch churn. Only ~300 events deep: `event_stream_dense_from` in the summary is the cutoff to state in the report |
 | `claude-sessions` | `sessions.tsv` | what was worked on per day outside GitHub; the opening prompt gives the topic. Covers only what this user's local Claude Code install recorded under `~/.claude/projects`: sessions run in Docker sandboxes, dev containers, other machines or the web app leave nothing here. Say so in the Sources line, together with any usage figures (ccusage and the like) that read the same local logs |
 | `home-docs` | `home-docs.tsv` | the Docs table |
+| `agent-usage` | `agent-usage.tsv`, `agent-usage.json` | the AI agent usage table: tokens and ccusage's list-price cost per agent and model. ccusage unifies every coding-agent CLI it finds logs for (Claude Code, Codex, OpenCode, pi, Copilot CLI, Gemini CLI), but only logs on this machine written by this user's install: Docker sandboxes, dev containers and other machines are not counted, so present the figures as a floor. Skipped when `npx` is missing or offline |
 | `jira` | `jira-weekly.txt` | which tickets were updated / transitioned by the user per week, via `$JIRA_SEARCH` |
 | `workdays` | `workdays.txt` | the time estimate |
 
@@ -99,7 +115,14 @@ the PR-cited keys and a visible Jira caveat in the header.
 - **Jira table**: key as link (see link conventions in `references/format.md`), title /
   context, status at month end, days touched. Bulk updates that look like board
   housekeeping are described as such, without claiming what changed.
-- **Docs handled table** and **Carry-over into next month** close the file.
+- **AI agent usage table** from `agent-usage.tsv`: one row per agent and model plus a bold
+  total row, thousands separators, the snapshot time in the intro (the month's last
+  sessions are still writing when the report is made), the previous month's total for
+  scale, the caveat that the cost is ccusage's list-price estimate, not an invoice, and
+  the scope: only logs written by this user's local install, so agents run in Docker
+  sandboxes, dev containers or on other machines are missing and the figures are a floor.
+  Agents are named as products ("Claude Code"), models in short form (`fable-5.1`).
+- **Docs handled table**, **AI agent usage** and **Carry-over into next month** close the file.
 
 ### 3. Write the daily log
 
